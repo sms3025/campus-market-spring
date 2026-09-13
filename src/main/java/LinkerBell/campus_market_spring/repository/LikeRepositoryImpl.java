@@ -9,6 +9,7 @@ import LinkerBell.campus_market_spring.dto.QItemSearchResponseDto;
 import LinkerBell.campus_market_spring.dto.SliceResponse;
 import com.querydsl.core.types.Projections;
 import com.querydsl.core.types.dsl.Expressions;
+import com.querydsl.jpa.JPAExpressions;
 import com.querydsl.jpa.impl.JPAQuery;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import jakarta.persistence.EntityManager;
@@ -30,48 +31,42 @@ public class LikeRepositoryImpl implements LikeRepositoryCustom {
         QLike like = QLike.like;
         QItem item = QItem.item;
         QUser user = QUser.user;
-        QChatRoom chatRoom = QChatRoom.chatRoom;
+        // Counted per item with correlated aggregates instead of joining both collections at once,
+        // which would multiply chat room rows by like rows before grouping.
+        QChatRoom chatRoomCount = new QChatRoom("chatRoomCount");
+        QLike likeCount = new QLike("likeCount");
 
         JPAQuery<LikeSearchResponseDto> query = queryFactory
             .select(Projections.constructor(LikeSearchResponseDto.class,
                 like.likeId,
                 new QItemSearchResponseDto(
-                    like.item.itemId,
-                    like.item.user.userId,
-                    like.item.user.nickname,
-                    like.item.thumbnail,
-                    like.item.title,
-                    like.item.price,
-                    chatRoom.countDistinct().intValue(),
-                    like.count().intValue(),
-                    like.item.itemStatus,
-                    Expressions.TRUE, like.item.createdDate, like.item.lastModifiedDate)
+                    item.itemId,
+                    user.userId,
+                    user.nickname,
+                    item.thumbnail,
+                    item.title,
+                    item.price,
+                    JPAExpressions.select(chatRoomCount.count().intValue())
+                        .from(chatRoomCount)
+                        .where(chatRoomCount.item.eq(item)),
+                    JPAExpressions.select(likeCount.count().intValue())
+                        .from(likeCount)
+                        .where(likeCount.item.eq(item)),
+                    item.itemStatus,
+                    Expressions.TRUE, item.createdDate, item.lastModifiedDate)
             ))
             .from(like)
             .leftJoin(like.item, item)
             .leftJoin(item.user, user)
-            .leftJoin(chatRoom).on(chatRoom.item.eq(like.item))
             .where(
                 like.user.userId.eq(userId),
                 item.isDeleted.isFalse()
             )
-            .groupBy(like.likeId)
             .offset(pageable.getOffset())
             .limit(pageable.getPageSize() + 1)
             .orderBy(like.createdDate.desc());
 
         List<LikeSearchResponseDto> content = query.fetch();
-
-        content.forEach(likeResponseDto -> {
-            Integer likeCount = queryFactory
-                .select(like.countDistinct().intValue())
-                .from(item)
-                .where(item.itemId.eq(likeResponseDto.getItem().getItemId()))
-                .leftJoin(like).on(like.item.eq(item))
-                .groupBy(item.itemId)
-                .fetch().get(0);
-            likeResponseDto.getItem().setLikeCount(likeCount);
-        });
 
         boolean hasNext = false;
         if (content.size() > pageable.getPageSize()) {

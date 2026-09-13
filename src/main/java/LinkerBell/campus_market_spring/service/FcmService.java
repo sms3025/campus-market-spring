@@ -5,9 +5,13 @@ import LinkerBell.campus_market_spring.domain.Keyword;
 import LinkerBell.campus_market_spring.domain.User;
 import LinkerBell.campus_market_spring.domain.UserFcmToken;
 import LinkerBell.campus_market_spring.dto.FcmMessageDto;
+import LinkerBell.campus_market_spring.dto.UserFcmTokenDto;
 import LinkerBell.campus_market_spring.repository.UserFcmTokenRepository;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -29,27 +33,43 @@ public class FcmService {
     private String deeplinkChatUrl;
 
     public void sendFcmMessageWithKeywords(List<Keyword> sendingKeywords, Item savedItem) {
-        for (Keyword sendingKeyword : sendingKeywords) {
-            List<String> fcmTokens = userFcmTokenRepository.findFcmTokenByUser_UserId(
-                sendingKeyword.getUser().getUserId());
-            for (String fcmToken : fcmTokens) {
-                FcmMessageDto sendingKeywordMessage = createKeywordFcmMessage(sendingKeyword,
-                    fcmToken,
-                    savedItem);
-
-                fcmNotificationService.sendNotification(sendingKeywordMessage);
-            }
-
-        }
+        sendKeywordNotifications(KeywordNotificationEvent.of(savedItem, sendingKeywords));
     }
 
-    private FcmMessageDto createKeywordFcmMessage(Keyword sendingKeyword, String fcmToken,
-        Item savedItem) {
+    /**
+     * Looks up every recipient token in one query and hands the whole set to the sender, so the
+     * cost no longer grows with one query and one round trip per recipient.
+     */
+    public void sendKeywordNotifications(KeywordNotificationEvent event) {
+        if (event.targets().isEmpty()) {
+            return;
+        }
+        List<Long> userIds = event.targets().stream()
+            .map(KeywordNotificationEvent.Target::userId)
+            .distinct()
+            .toList();
+
+        Map<Long, List<String>> tokensByUser = userFcmTokenRepository
+            .findFcmTokensByUserIds(userIds).stream()
+            .collect(Collectors.groupingBy(UserFcmTokenDto::userId,
+                Collectors.mapping(UserFcmTokenDto::fcmToken, Collectors.toList())));
+
+        List<FcmMessageDto> messages = new ArrayList<>();
+        for (KeywordNotificationEvent.Target target : event.targets()) {
+            for (String fcmToken : tokensByUser.getOrDefault(target.userId(), List.of())) {
+                messages.add(createKeywordFcmMessage(target.keywordName(), fcmToken, event));
+            }
+        }
+        fcmNotificationService.sendNotifications(messages);
+    }
+
+    private FcmMessageDto createKeywordFcmMessage(String keywordName, String fcmToken,
+        KeywordNotificationEvent event) {
         return FcmMessageDto.builder()
             .targetToken(fcmToken)
-            .title(sendingKeyword.getKeywordName() + " 키워드 알림")
-            .body(savedItem.getTitle())
-            .deeplinkUrl(deeplinkKeywordUrl + savedItem.getItemId())
+            .title(keywordName + " 키워드 알림")
+            .body(event.itemTitle())
+            .deeplinkUrl(deeplinkKeywordUrl + event.itemId())
             .build();
     }
 

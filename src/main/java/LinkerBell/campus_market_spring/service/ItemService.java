@@ -23,6 +23,7 @@ import java.util.List;
 import java.util.Objects;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -38,9 +39,9 @@ public class ItemService {
     private final ChatRoomRepository chatRoomRepository;
 
     private final S3Service s3Service;
-    private final FcmService fcmService;
     private final KeywordService keywordService;
     private final NotificationHistoryService notificationHistoryService;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional(readOnly = true)
     public SliceResponse<ItemSearchResponseDto> itemSearch(Long userId,
@@ -71,7 +72,8 @@ public class ItemService {
             savedItem);
 
         notificationHistoryService.saveNotificationHistory(sendingKeywords, savedItem);
-        fcmService.sendFcmMessageWithKeywords(sendingKeywords, savedItem);
+        // Published here, delivered after this transaction commits and off the request thread.
+        eventPublisher.publishEvent(KeywordNotificationEvent.of(savedItem, sendingKeywords));
 
         return new ItemRegisterResponseDto(savedItem.getItemId());
 

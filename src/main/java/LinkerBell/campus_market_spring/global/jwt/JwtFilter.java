@@ -23,6 +23,8 @@ import org.thymeleaf.util.StringUtils;
 @RequiredArgsConstructor
 @Slf4j
 public class JwtFilter extends OncePerRequestFilter {
+    @org.springframework.beans.factory.annotation.Autowired
+    private org.springframework.core.env.Environment environment;
 
     private final JwtUtils jwtUtils;
     private final RedisService redisService;
@@ -54,6 +56,11 @@ public class JwtFilter extends OncePerRequestFilter {
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) throws ServletException {
         String path = request.getRequestURI();
+        if (environment != null
+            && environment.acceptsProfiles(org.springframework.core.env.Profiles.of("local-test"))
+            && (path.startsWith("/local-test/") || path.startsWith("/actuator/"))) {
+            return true;
+        }
         return path.startsWith("/api/v1/auth/login") || path.startsWith("/ws")
             || path.startsWith("/admin/api/v1/login");
 

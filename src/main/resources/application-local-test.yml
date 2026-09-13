@@ -1,0 +1,61 @@
+server:
+  address: ${APP_BIND:127.0.0.1}
+  port: 8080
+spring:
+  datasource:
+    url: ${DB_URL:jdbc:mariadb://localhost:13306/campus_local_test}
+    username: ${DB_USER:campus}
+    password: ${DB_PASSWORD:local-only-password}
+    hikari:
+      maximum-pool-size: ${DB_POOL_SIZE:10}
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:16379}
+  main:
+    banner-mode: off
+jwt:
+  secret:
+    key: ${LOCAL_JWT_SECRET:local-test-only-never-use-in-production-123456789}
+  access:
+    expiration: 86400000
+  refresh:
+    expiration: 86400000
+firebase:
+  json_path: ${FIREBASE_CREDENTIALS:/run/secrets/firebase.json}
+google:
+  client: unused-local-test
+aws:
+  bucket: local-test
+  region: ap-northeast-2
+  folder: fixtures
+cron:
+  recovery: '-'
+path:
+  default_item_thumbnail: https://example.invalid/item.png
+  default_profile_image: https://example.invalid/user.png
+deeplink:
+  keyword_url: http://localhost:8080/local-test/?itemId=
+  chat_url: http://localhost:8080/local-test/?excludedChat=
+local-test:
+  fcm:
+    real: ${FCM_REAL:false}
+    delay-ms: ${FCM_DELAY_MS:0}
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus
+  endpoint:
+    health:
+      show-details: never
+  metrics:
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+        local.fcm.duration: true
+        fcm.dispatch.duration: true

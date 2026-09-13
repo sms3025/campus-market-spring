@@ -104,15 +104,47 @@ class KeywordRepositoryTest {
     }
 
     @Test
-    @DisplayName("유저와 캠퍼스를 모두 가져오는 함수 test")
-    public void findKeywordsWithUserAndCampusTest() throws Exception {
+    @DisplayName("같은 캠퍼스, 작성자 제외, 제목 포함 조건을 쿼리에서 거르는지 test")
+    public void findMatchingKeywordsTest() throws Exception {
         //given
+        Long campusId = campuses.get(2).getCampusId();
 
         //when
-        List<Keyword> keywordsWithUserAndCampus = keywordRepository.findKeywordsWithUserAndCampus();
-        //then
-        assertThat(keywordsWithUserAndCampus.size()).isEqualTo(keywords.size());
+        List<Keyword> matched = keywordRepository.findMatchingKeywords(campusId,
+            users.get(9).getUserId(), "second3 third6 팝니다");
 
+        //then 같은 캠퍼스의 다른 사용자 키워드만 남는다
+        assertThat(matched).hasSize(1);
+        assertThat(matched.get(0).getKeywordName()).isEqualTo("second3");
+        assertThat(matched.get(0).getUser().getUserId()).isEqualTo(users.get(6).getUserId());
+    }
+
+    @Test
+    @DisplayName("작성자 본인의 키워드와 다른 캠퍼스 키워드는 조회되지 않는 test")
+    public void findMatchingKeywordsExcludesWriterAndOtherCampusTest() throws Exception {
+        //given
+        String title = "first0 second3 third6 팝니다";
+
+        //when
+        List<Keyword> writerIsOwner = keywordRepository.findMatchingKeywords(
+            campuses.get(0).getCampusId(), users.get(0).getUserId(), title);
+        List<Keyword> otherCampus = keywordRepository.findMatchingKeywords(
+            campuses.get(1).getCampusId(), users.get(3).getUserId(), title);
+
+        //then
+        assertThat(writerIsOwner).isEmpty();
+        assertThat(otherCampus).isEmpty();
+    }
+
+    @Test
+    @DisplayName("제목에 포함되지 않는 키워드는 조회되지 않는 test")
+    public void findMatchingKeywordsRequiresTitleMatchTest() throws Exception {
+        //when
+        List<Keyword> matched = keywordRepository.findMatchingKeywords(
+            campuses.get(0).getCampusId(), users.get(1).getUserId(), "관련 없는 상품");
+
+        //then
+        assertThat(matched).isEmpty();
     }
 
     @Test

@@ -1,0 +1,120 @@
+name: campus-local-test
+x-app: &app
+  image: campus-local-test-app:dev
+  build:
+    context: .
+    dockerfile: docker/local-test/Dockerfile
+  environment: &app-env
+    SPRING_PROFILES_ACTIVE: local-test
+    APP_BIND: 0.0.0.0
+    DB_URL: jdbc:mariadb://mariadb:3306/campus_local_test
+    DB_USER: campus
+    DB_PASSWORD: ${DB_PASSWORD:-local-only-password}
+    REDIS_HOST: redis
+    REDIS_PORT: 6379
+    JAVA_TOOL_OPTIONS: -Xms256m -Xmx1024m
+    FCM_REAL: ${FCM_REAL:-false}
+    FCM_DELAY_MS: ${FCM_DELAY_MS:-0}
+  depends_on:
+    mariadb: {condition: service_healthy}
+    redis: {condition: service_healthy}
+  cpus: 2
+  mem_limit: 1536m
+services:
+  mariadb:
+    image: mariadb:11.4.5
+    environment:
+      MARIADB_DATABASE: campus_local_test
+      MARIADB_USER: campus
+      MARIADB_PASSWORD: ${DB_PASSWORD:-local-only-password}
+      MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-local-root-only}
+    command: [--character-set-server=utf8mb4, --collation-server=utf8mb4_unicode_ci]
+    ports: ["127.0.0.1:${DB_PORT:-13306}:3306"]
+    volumes: [mariadb-data:/var/lib/mysql]
+    healthcheck:
+      test: [CMD, healthcheck.sh, --connect, --innodb_initialized]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    cpus: 2
+    mem_limit: 2g
+  redis:
+    image: redis:7.4.2-alpine
+    command: [redis-server, --save, "", --appendonly, "no"]
+    ports: ["127.0.0.1:${REDIS_PORT:-16379}:6379"]
+    healthcheck:
+      test: [CMD, redis-cli, ping]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    cpus: 0.5
+    mem_limit: 256m
+  app:
+    <<: *app
+    profiles: [app]
+    ports: ["127.0.0.1:8080:8080"]
+    volumes:
+      - ${FIREBASE_SECRETS_DIR:-./docker/local-test/secrets}:/run/secrets:ro
+    healthcheck:
+      test: [CMD, curl, -fsS, http://localhost:8080/actuator/health]
+      interval: 5s
+      timeout: 5s
+      retries: 40
+  seed:
+    <<: *app
+    profiles: [tools]
+    environment:
+      <<: *app-env
+      FCM_REAL: "false"
+    command: ["--seed.enabled=true", "--seed.scale=${SEED_SCALE:-smoke}", "--seed.distribution=${SEED_DISTRIBUTION:-uniform}", "--seed.random=${SEED_RANDOM:-3025}", "--seed.fanout=${SEED_FANOUT:-1}", "--seed.output=/results/seed-manifest.json", "--seed.version=${CODE_VERSION:-working-tree}"]
+    volumes: [./artifacts/performance:/results]
+  prometheus:
+    image: prom/prometheus:v3.2.1
+    command: [--config.file=/etc/prometheus/prometheus.yml, --storage.tsdb.retention.time=7d]
+    ports: ["127.0.0.1:9090:9090"]
+    volumes:
+      - ${PROMETHEUS_CONFIG:-./docker/local-test/prometheus/prometheus.yml}:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    extra_hosts: ["host.docker.internal:host-gateway"]
+    cpus: 1
+    mem_limit: 768m
+  grafana:
+    image: grafana/grafana:11.6.0
+    ports: ["127.0.0.1:3000:3000"]
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-local-grafana-only}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - ./docker/local-test/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./docker/local-test/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    cpus: 1
+    mem_limit: 512m
+  k6:
+    image: grafana/k6:1.0.0
+    profiles: [tools]
+    user: "0:0"
+    environment:
+      BASE_URL: ${BASE_URL:-http://app:8080}
+      SCENARIO: ${SCENARIO:-items}
+      RATE: ${RATE:-10}
+      DURATION: ${DURATION:-3m}
+      PAGE_SIZE: ${PAGE_SIZE:-10}
+      PAGE: ${PAGE:-0}
+      SEARCH: ${SEARCH:-}
+      RUN_ID: ${RUN_ID:-manual}
+      K6_WEB_DASHBOARD: "true"
+      K6_WEB_DASHBOARD_EXPORT: /results/${RUN_ID:-manual}/report.html
+    entrypoint: [k6]
+    command: [run, /scripts/load.js]
+    volumes:
+      - ./performance/k6:/scripts:ro
+      - ./artifacts/performance:/results
+    extra_hosts: ["host.docker.internal:host-gateway"]
+    cpus: 2
+    mem_limit: 1g
+volumes:
+  mariadb-data:
+  prometheus-data:
+  grafana-data:

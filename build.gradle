@@ -29,6 +29,9 @@ repositories {
 }
 
 dependencies {
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
+    implementation 'io.micrometer:micrometer-registry-prometheus'
+    implementation 'net.ttddyy:datasource-proxy:1.10'
 
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
     implementation 'org.springframework.boot:spring-boot-starter-oauth2-client'
@@ -158,3 +161,42 @@ jacocoTestCoverageVerification {
 }
 // jacoco end
 // ---------------- Test End
+
+// Reproducible portfolio scope. Requires the dedicated seeded MariaDB/Redis stack.
+tasks.register('localVerification', Test) {
+    description = 'Verify local tooling and the contributed item/keyword/like scope'
+    group = 'verification'
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    useJUnitPlatform()
+    systemProperty 'spring.profiles.active', 'local-test'
+    filter {
+        includeTestsMatching '*.localtest.*'
+        ['ItemControllerTest', 'KeywordControllerTest', 'LikeControllerTest',
+         'ItemServiceTest', 'KeywordServiceTest', 'LikeServiceTest',
+         'ItemRepositoryTest', 'LikeRepositoryTest', 'KeywordRepositoryTest'].each {
+            includeTestsMatching "*.$it"
+        }
+    }
+    finalizedBy 'localCoverage'
+}
+
+tasks.register('localCoverage', JacocoReport) {
+    dependsOn 'localVerification'
+    executionData file(layout.buildDirectory.file('jacoco/localVerification.exec'))
+    sourceDirectories.setFrom(files('src/main/java'))
+    classDirectories.setFrom(fileTree(layout.buildDirectory.dir('classes/java/main')) {
+        include '**/service/ItemService.class', '**/service/KeywordService.class',
+            '**/service/LikeService.class', '**/service/FcmService.class',
+            '**/service/FcmNotificationService.class', '**/repository/ItemRepositoryImpl.class',
+            '**/repository/LikeRepositoryImpl.class', '**/controller/ItemController.class',
+            '**/controller/KeywordController.class', '**/controller/LikeController.class',
+            '**/service/KeywordNotificationListener.class', '**/service/KeywordNotificationEvent*.class',
+            '**/global/config/AsyncConfig*.class',
+            '**/localtest/**'
+    })
+    reports {
+        html.required = true
+        xml.required = true
+    }
+}

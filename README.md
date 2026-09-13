@@ -60,3 +60,23 @@ https://github.com/spring-projects/spring-framework/wiki/Code-Style
 ## 깃 컨벤션
 
 <img width="1098" alt="gitflow" src="https://github.com/user-attachments/assets/05b57047-01a2-4cc5-aabc-07a34fdb8946">
+
+## 개인 포트폴리오 확장: 로컬 성능 실험실
+
+이정태(sms3025)의 기존 상품·키워드·FCM·조회 기여를 대상으로 한 로컬 검증 환경입니다. 로그인/채팅 고도화는 제외하며, 현재 쿼리와 FCM 대기 동작의 baseline을 측정합니다.
+
+- [승인된 작업 계획](docs/plan/로컬_기능_테스트_페이지.md)
+- [로컬 실행·Firebase·성능 측정 안내](docs/local-test.md)
+- [작업 결과와 실제 측정값](docs/result/로컬_기능_테스트_페이지.md)
+- [남은 고도화 계획](docs/plan/후속_성능_고도화_계획.md)
+- [학습 정리와 면접 대비](docs/study/00-읽는-순서와-면접-대비.md)
+
+Java 17과 실행 중인 Docker Desktop(Linux 컨테이너)이 필요합니다. 저장소 루트 PowerShell에서 실행합니다.
+
+```powershell
+./scripts/local-test/run.ps1 -Action Build
+./scripts/local-test/run.ps1 -Action Seed -Scale smoke
+./scripts/local-test/run.ps1 -Action Start
+```
+
+테스트 페이지: http://localhost:8080/local-test/ · Grafana: http://localhost:3000/d/campus-local

@@ -20,6 +20,7 @@ import software.amazon.awssdk.services.s3.presigner.model.PresignedPutObjectRequ
 import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignRequest;
 
 @Service
+@org.springframework.context.annotation.Profile("!local-test")
 @RequiredArgsConstructor
 @Slf4j
 public class S3Service {
