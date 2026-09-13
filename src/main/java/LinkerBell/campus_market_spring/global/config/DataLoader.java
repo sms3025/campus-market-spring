@@ -15,6 +15,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 @Component
+@org.springframework.context.annotation.Profile("!local-test")
 @RequiredArgsConstructor
 @Slf4j
 public class DataLoader implements CommandLineRunner {

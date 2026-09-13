@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Campus Market · 로컬 성능 실험실</title><link rel="stylesheet" href="style.css"></head>
+<body><header><span class="eyebrow">SMS3025 / BACKEND PORTFOLIO</span><h1>로컬 성능 실험실</h1>
+<p>상품 조회 · 키워드 알림 · SQL 실행 횟수. 같은 조건으로 측정하고, 실제 결과를 비교합니다.</p>
+<nav><a href="#requests">기능 테스트</a><a href="#firebase">Firebase 수신</a><a href="#performance">성능 측정</a><a href="http://localhost:3000/d/campus-local" target="_blank" rel="noopener">Grafana ↗</a></nav></header>
+<main><section class="session"><h2>테스트 사용자</h2><label>계정 <select id="account"><option value="1">사용자 1 · 판매자</option><option value="2">사용자 2 · 수신/찜</option><option value="3">관리자 · 조회</option></select></label>
+<button id="session">계정 선택 적용</button><span id="sessionStatus" role="status">더미 데이터 적재 후 계정을 선택하세요.</span>
+<details><summary>기존 JWT 직접 입력</summary><label>Access token <input id="jwt" type="password" autocomplete="off"></label><button id="useJwt">적용</button></details></section>
+<div class="columns"><section id="requests"><h2>API 요청</h2><p>실제 서비스와 DB를 호출합니다. 변경 요청은 테스트 데이터에 반영됩니다.</p>
+<label>기능 <select id="endpoint"></select></label><label>대상 ID <input id="resourceId" type="number" min="1" value="1"></label>
+<div class="fields"><label>검색어<input id="name" placeholder="상품 / rare / 없는검색어"></label><label>페이지<input id="page" type="number" min="0" value="0"></label><label>페이지 크기<input id="size" type="number" min="1" max="100" value="10"></label><label>정렬<select id="sort"><option>createdDate,desc</option><option>createdDate,asc</option><option>price,asc</option><option>price,desc</option></select></label><label>최소 가격<input id="minPrice" type="number" min="0"></label><label>최대 가격<input id="maxPrice" type="number" min="0"></label><label>상태<select id="itemStatus"><option value="">전체</option><option>FORSALE</option><option>SOLDOUT</option></select></label><label>카테고리<select id="category"><option value="">전체</option></select></label><label>관리자 캠퍼스 ID<input id="campusId" type="number" min="1"></label><label>관리자 삭제 여부<select id="isDeleted"><option value="">전체</option><option>false</option><option>true</option></select></label></div>
+<label>요청 JSON<textarea id="body" rows="9" spellcheck="false"></textarea></label><button id="send" class="primary">요청 실행</button><code id="requestPath"></code></section>
+<section><h2>실행 결과</h2><div class="metrics"><div><span>HTTP</span><strong id="http">—</strong></div><div><span>브라우저 시간</span><strong id="elapsed">미측정</strong></div><div><span>SQL 횟수</span><strong id="sql">미측정</strong></div></div>
+<p class="hint">SQL 수에는 인증과 DTO 구성 쿼리가 포함됩니다. 요청 스레드의 JDBC 실행 수이며 비동기 작업은 포함하지 않습니다.</p><pre id="response" aria-live="polite">응답 대기</pre><h3>최근 요청</h3><ol id="history"></ol></section></div>
+<section id="firebase"><h2>Firebase 웹 푸시</h2><p>웹 앱 설정 JSON과 VAPID 공개 키를 입력합니다. 서비스 계정 비밀키는 서버에만 배치하세요.</p>
+<label>Firebase 웹 설정 JSON<textarea id="firebaseConfig" rows="5" placeholder='{"apiKey":"...","projectId":"...","messagingSenderId":"...","appId":"..."}'></textarea></label>
+<label>VAPID 공개 키<input id="vapid" autocomplete="off"></label><button id="registerPush">알림 권한 요청 · 토큰 발급 · 현재 계정 등록</button><p id="pushStatus" role="status">미등록 · Firebase 설정이 없어도 나머지 기능은 사용할 수 있습니다.</p>
+<p>사용자 2에서 키워드 <code>웹푸시</code> 등록 → 사용자 1에서 제목에 <code>웹푸시</code>가 포함된 상품 등록. 본인 등록 상품은 수신 대상에서 제외됩니다.</p>
+<button id="fcmEvents">서버 전송 내역 조회</button><pre id="pushLog">실제 수신 미검증</pre></section>
+<section id="performance"><h2>대용량 측정</h2><p>아래 명령은 저장소 루트의 PowerShell에서 실행합니다. 이 화면은 시스템 명령을 실행하지 않습니다.</p>
+<pre>./scripts/local-test/run.ps1 -Action Seed -Scale medium
+./scripts/local-test/run.ps1 -Action Start
+./scripts/local-test/run.ps1 -Action Measure -Scenario likes -PageSize 50 -Rate 10</pre>
+<table><thead><tr><th>데이터 프로필</th><th>상품</th><th>찜</th></tr></thead><tbody><tr><td>smoke</td><td>1,000</td><td>5,000</td></tr><tr><td>small</td><td>10,000</td><td>50,000</td></tr><tr><td>medium</td><td>100,000</td><td>500,000</td></tr><tr><td>large</td><td>1,000,000</td><td>5,000,000</td></tr></tbody></table>
+<p>프로필 건수는 생성 목표입니다. 실제 적재값은 <code>artifacts/performance/seed-manifest.json</code>에서, 측정값은 실행별 HTML/summary 파일에서 확인합니다.</p><p>라인·브랜치 커버리지: <code>build/reports/jacoco/test/html/index.html</code>. 비동기 개선과 쿼리 최적화는 baseline 확보 후 별도 진행합니다.</p></section></main>
+<footer>이정태(sms3025)의 로컬 검증 환경 · 로그인/채팅 고도화 제외 · 외부 전송 모드는 서버 내역에서 확인</footer><script type="module" src="app.js"></script></body></html>

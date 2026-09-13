@@ -106,7 +106,7 @@ class KeywordServiceTest {
     }
 
     @Test
-    @DisplayName("작성자를 제외하고 등록한 아이템과 같은 캠퍼스를 가지며 아이템 제목에 키워드의 입부가 포함되어 있을 때, 테스트")
+    @DisplayName("캠퍼스와 작성자 조건을 쿼리에 넘기고, 후보 중 대소문자까지 일치하는 키워드만 남기는지 테스트")
     public void findKeywordsWithSameItemCampusAndTitleTest() throws Exception {
         //given
         Item savedItem = Item.builder()
@@ -114,8 +114,16 @@ class KeywordServiceTest {
             .user(users.get(1))
             .campus(campuses.get(0))
             .build();
+        // 쿼리는 기본 collation 때문에 대소문자를 구분하지 않아 후보가 더 넓게 온다
+        Keyword differentCase = Keyword.builder()
+            .keywordId(5L)
+            .keywordName("Camera")
+            .user(users.get(0))
+            .build();
         //when
-        when(keywordRepository.findKeywordsWithUserAndCampus()).thenReturn(keywords);
+        when(keywordRepository.findMatchingKeywords(campuses.get(0).getCampusId(),
+            users.get(1).getUserId(), "sony camera"))
+            .thenReturn(List.of(keywords.get(0), differentCase));
 
         List<Keyword> targetKeyword = keywordService.findKeywordsWithSameItemCampusAndTitle(
             savedItem);

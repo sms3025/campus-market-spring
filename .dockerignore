@@ -1,0 +1,7 @@
+.git
+.gradle*
+.idea
+artifacts
+docs
+docker/local-test/secrets
+**/.env

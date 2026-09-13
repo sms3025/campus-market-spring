@@ -28,13 +28,13 @@ public class KeywordService {
 
     @Transactional(readOnly = true)
     public List<Keyword> findKeywordsWithSameItemCampusAndTitle(Item savedItem) {
-        return keywordRepository.findKeywordsWithUserAndCampus()
+        // Campus, author and title conditions run in the database. The remaining filter keeps the
+        // original case sensitive match, since the database candidates are a superset of it.
+        return keywordRepository.findMatchingKeywords(
+                savedItem.getCampus().getCampusId(),
+                savedItem.getUser().getUserId(),
+                savedItem.getTitle())
             .stream()
-            .filter(k -> k.getUser().getCampus() != null)
-            .filter(k -> !Objects.equals(k.getUser().getUserId(),
-                savedItem.getUser().getUserId()))
-            .filter(k -> Objects.equals(k.getUser().getCampus().getCampusId(),
-                savedItem.getCampus().getCampusId()))
             .filter(k -> savedItem.getTitle().contains(k.getKeywordName()))
             .toList();
     }

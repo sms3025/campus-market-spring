@@ -15,12 +15,18 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 @Slf4j
 public class FirebaseConfig {
+    @org.springframework.beans.factory.annotation.Autowired
+    private org.springframework.core.env.Environment environment;
 
     @Value("${firebase.json_path}")
     String firebasePath;
 
     @PostConstruct
     public void init() {
+        if (environment.acceptsProfiles(org.springframework.core.env.Profiles.of("local-test"))
+            && !environment.getProperty("local-test.fcm.real", Boolean.class, false)) {
+            return;
+        }
         try {
             InputStream serviceAccount = new FileInputStream(firebasePath);
             FirebaseOptions options = FirebaseOptions.builder()

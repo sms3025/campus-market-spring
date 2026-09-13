@@ -44,3 +44,10 @@ src/test/resources/*
 *.csv
 *.json
 **/generated
+
+# Local performance environment
+.gradle-local/
+artifacts/
+docker/local-test/secrets/
+docker/local-test/.env
+!docker/local-test/grafana/dashboards/*.json
